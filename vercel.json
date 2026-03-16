@@ -1,8 +1,8 @@
 {
   "framework": null,
   "redirects": [
-    { "source": "/", "destination": "/Thinker-Pet-app-demo/", "permanent": false },
-    { "source": "/index.html", "destination": "/Thinker-Pet-app-demo/", "permanent": false }
+    { "source": "/", "destination": "/Thinker-Pet-app-demo/chat.html", "permanent": false },
+    { "source": "/index.html", "destination": "/Thinker-Pet-app-demo/chat.html", "permanent": false }
   ],
   "trailingSlash": false
 }
