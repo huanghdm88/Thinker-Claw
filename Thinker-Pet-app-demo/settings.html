@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Thinker Pet — 设置</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%236366f1' width='32' height='32' rx='6'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='white'>T</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="css/styles.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <header class="top-bar">
+      <span class="app-title">设置</span>
+      <a href="chat.html" class="btn-icon" aria-label="返回">←</a>
+    </header>
+    <main class="main">
+      <div class="card settings-section settings-collapsible">
+        <button type="button" class="settings-collapse-trigger" id="character-section-trigger" aria-expanded="true">
+          <span class="settings-collapse-title">角色</span>
+          <span class="settings-collapse-icon" aria-hidden="true">▼</span>
+        </button>
+        <p class="settings-collapse-desc">切换对话页展示的角色。在对话页可向该角色发消息、下达任务或创建定时任务，角色会随执行状态自动切换动作。</p>
+        <div class="character-grid-wrap" id="character-grid-wrap">
+          <div class="character-grid" id="character-grid"></div>
+        </div>
+      </div>
+
+      <div class="card settings-section">
+        <h3>角色默认状态</h3>
+        <p>对话页加载时及回复结束后，角色在「对话」与「等待」之间随机切换显示。</p>
+      </div>
+
+      <div class="card settings-section">
+        <h3>人设（System Prompt）</h3>
+        <p>定义助手的默认人设与行为。</p>
+        <textarea class="textarea" id="system-prompt" rows="5"></textarea>
+        <button type="button" class="btn btn-primary btn-save-prompt">保存</button>
+      </div>
+
+      <div class="card settings-section">
+        <h3>长记忆</h3>
+        <p>助手会据此理解你的偏好与背景；对话中说「请记住…」也会自动写入。</p>
+        <ul class="memory-list" id="memory-list"></ul>
+        <div class="empty-state small" id="memory-empty">暂无长记忆</div>
+        <div class="add-row">
+          <input type="text" class="input" id="memory-input" placeholder="新增一条记忆" />
+          <button type="button" class="btn btn-secondary" id="btn-add-memory">添加</button>
+        </div>
+      </div>
+
+      <div class="card settings-section">
+        <h3>定时任务（Cron）</h3>
+        <p>在对话页向角色下达定时任务，例如「每天9点提醒我开会」「每周一提醒我复盘」，系统会自动识别并创建；可在此查看或删除。</p>
+        <ul class="cron-list" id="cron-list"></ul>
+        <div class="empty-state small" id="cron-empty">暂无定时任务</div>
+      </div>
+
+      <div class="bottom-actions">
+        <a href="index.html?reset=1" class="btn btn-secondary">重新选择角色</a>
+      </div>
+    </main>
+  </div>
+  <iframe id="thinker-pet-avatar-loader" class="avatar-loader-iframe" title="加载角色头像" src="about:blank"></iframe>
+  <script src="js/storage.js"></script>
+  <script src="js/characters.js"></script>
+  <script>
+    (function () {
+      const characterGrid = document.getElementById('character-grid');
+      const systemPromptEl = document.getElementById('system-prompt');
+      const btnSavePrompt = document.querySelector('.btn-save-prompt');
+      const memoryList = document.getElementById('memory-list');
+      const memoryEmpty = document.getElementById('memory-empty');
+      const memoryInput = document.getElementById('memory-input');
+      const btnAddMemory = document.getElementById('btn-add-memory');
+      const cronList = document.getElementById('cron-list');
+      const cronEmpty = document.getElementById('cron-empty');
+
+      let currentIndex = getCharacterIndex();
+
+      (function initCollapsible() {
+        var trigger = document.getElementById('character-section-trigger');
+        var wrap = document.getElementById('character-grid-wrap');
+        if (!trigger || !wrap) return;
+        trigger.addEventListener('click', function () {
+          var open = wrap.classList.toggle('collapsed');
+          trigger.setAttribute('aria-expanded', !open);
+          trigger.querySelector('.settings-collapse-icon').textContent = open ? '▶' : '▼';
+        });
+      })();
+
+      CHARACTERS.forEach(function (c) {
+        const el = document.createElement('div');
+        el.className = 'character-item' + (c.index === currentIndex ? ' selected' : '');
+        el.setAttribute('data-index', c.index);
+        el.innerHTML = '<div class="character-avatar">' +
+          '<img class="character-avatar-img" data-avatar-index="' + c.index + '" alt="" />' +
+          '</div><span class="character-name">' + c.name + '</span>';
+        el.addEventListener('click', function () {
+          currentIndex = parseInt(el.getAttribute('data-index'), 10);
+          setCharacterIndex(currentIndex);
+          characterGrid.querySelectorAll('.character-item').forEach(function (item) {
+            item.classList.toggle('selected', parseInt(item.getAttribute('data-index'), 10) === currentIndex);
+          });
+        });
+        characterGrid.appendChild(el);
+      });
+
+      (function loadCharacterAvatars() {
+        var iframe = document.getElementById('thinker-pet-avatar-loader');
+        if (!iframe) return;
+        iframe.src = '../Thinker-pet/index.html?embed=1&lang=zh';
+        iframe.addEventListener('load', function () {
+          for (var i = 0; i <= 20; i++) {
+            iframe.contentWindow.postMessage({
+              type: 'thinker-pet',
+              method: 'getAvatar',
+              characterIndex: i,
+              evolved: false
+            }, '*');
+          }
+        });
+        window.addEventListener('message', function (e) {
+          if (e.data && e.data.type === 'thinker-pet-avatar' && e.data.dataUrl != null) {
+            var idx = e.data.characterIndex;
+            var img = document.querySelector('.character-avatar-img[data-avatar-index="' + idx + '"]');
+            if (img) img.src = e.data.dataUrl;
+          }
+        });
+      })();
+
+      systemPromptEl.value = getSystemPrompt();
+      btnSavePrompt.addEventListener('click', function () {
+        setSystemPrompt(systemPromptEl.value);
+        btnSavePrompt.textContent = '已保存';
+        setTimeout(function () { btnSavePrompt.textContent = '保存'; }, 1500);
+      });
+
+      function renderMemory() {
+        const list = getLongMemory();
+        memoryList.innerHTML = '';
+        memoryEmpty.style.display = list.length ? 'none' : 'block';
+        list.forEach(function (item) {
+          const li = document.createElement('li');
+          li.innerHTML = '<span>' + item.content.slice(0, 80) + (item.content.length > 80 ? '…' : '') + '</span><button type="button" class="btn-delete" data-id="' + item.id + '">删除</button>';
+          li.querySelector('.btn-delete').addEventListener('click', function () {
+            removeLongMemoryItem(item.id);
+            renderMemory();
+          });
+          memoryList.appendChild(li);
+        });
+      }
+
+      btnAddMemory.addEventListener('click', function () {
+        const content = memoryInput.value.trim();
+        if (!content) return;
+        addLongMemoryItem(content);
+        memoryInput.value = '';
+        renderMemory();
+      });
+
+      function renderCron() {
+        const list = getCronTasks();
+        cronList.innerHTML = '';
+        cronEmpty.style.display = list.length ? 'none' : 'block';
+        list.forEach(function (task) {
+          const li = document.createElement('li');
+          li.innerHTML = '<span>' + task.description + ' <code>' + task.expr + '</code></span><button type="button" class="btn-delete" data-id="' + task.id + '">删除</button>';
+          li.querySelector('.btn-delete').addEventListener('click', function () {
+            removeCronTask(task.id);
+            renderCron();
+          });
+          cronList.appendChild(li);
+        });
+      }
+
+      renderMemory();
+      renderCron();
+    })();
+  </script>
+</body>
+</html>

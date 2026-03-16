@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0e" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Thinker Pet — 与角色对话</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%236366f1' width='32' height='32' rx='6'/><text x='16' y='22' font-size='18' text-anchor='middle' fill='white'>T</text></svg>" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="css/styles.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <header class="chat-header">
+      <div class="pet-stage" id="pet-stage">
+        <iframe id="thinker-pet-iframe" title="Thinker Pet 角色" src=""></iframe>
+      </div>
+    </header>
+    <main class="main chat-main">
+      <div class="chat-messages" id="chat-messages">
+        <div class="empty-state" id="empty-state">向你的伙伴发送消息、下达任务或创建定时提醒，角色会随执行状态自动切换动作。</div>
+      </div>
+      <div class="chat-input-wrap">
+        <div class="chat-input-row chat-input-row-top">
+          <a href="settings.html" class="chat-settings-link">设置</a>
+        </div>
+        <div class="skill-tags" id="skill-tags">
+          <span class="skill-tag" data-skill="commercial">商业分析</span>
+          <span class="skill-tag" data-skill="industry">行业分析</span>
+          <span class="skill-tag" data-skill="knowledge_graph">知识架构图</span>
+        </div>
+        <div class="chat-input-row">
+          <textarea class="textarea chat-input" id="chat-input" placeholder="输入消息、下达任务或说「每天9点提醒我…」创建定时" rows="1"></textarea>
+          <button type="button" class="btn btn-primary" id="btn-send">发送</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="js/storage.js"></script>
+  <script src="js/characters.js"></script>
+  <script src="js/thinker-pet-bridge.js"></script>
+  <script src="js/agent.js"></script>
+  <script src="js/chat.js"></script>
+</body>
+</html>
