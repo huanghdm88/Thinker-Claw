@@ -101,11 +101,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 180px;
+      width: 100%;
+      min-width: 192px;
+      min-height: 85px;
+      aspect-ratio: 384 / 170;
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 16px;
       padding: 24px;
+      box-sizing: border-box;
     }
     .evolve-btn {
       position: absolute;
@@ -134,9 +138,9 @@
     }
     .viewer-canvas-wrap canvas {
       display: block;
-      max-width: 100%;
-      width: 384px;   /* 300% 原宽度 128*3 */
-      height: 170px;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
       background: #1c1c1e;
@@ -271,7 +275,7 @@
     .integration-modal-body .md-content blockquote { margin: 12px 0; padding: 8px 0 8px 14px; border-left: 4px solid #6366f1; background: rgba(99, 102, 241, 0.08); color: #a1a1aa; border-radius: 0 6px 6px 0; }
 
     /* 嵌入模式：仅显示角色画布，无标题/副标题/切换角色/查看文档 */
-    body.embed-mode { padding: 0; min-height: 0; }
+    html.embed-mode, body.embed-mode { height: 100%; margin: 0; padding: 0; min-height: 0; }
     body.embed-mode .top-right-bar,
     body.embed-mode h1,
     body.embed-mode .subtitle,
@@ -281,16 +285,19 @@
     body.embed-mode .char-meta,
     body.embed-mode .evolve-btn { display: none !important; }
     body.embed-mode .gallery { max-width: none; margin: 0; }
+    /* 嵌入画布：宽度随页面自适应（仅最小宽度约束），高度仅最小高度约束，活动区域随容器或 setActivityArea 变化 */
     body.embed-mode .viewer-canvas-wrap {
       position: relative;
-      min-height: 0;
       width: 100%;
+      min-width: 192px;
+      min-height: 85px;
+      height: 100%;
       padding: 0;
       border: none;
       border-radius: 0;
       background: #1c1c1e;
-      aspect-ratio: 384 / 170;  /* 保持画布原始比例，避免角色被压扁 */
-      height: auto;
+      margin: 0 auto;
+      display: block;
     }
     body.embed-mode .viewer-canvas-wrap canvas {
       position: absolute;
@@ -298,11 +305,13 @@
       top: 0;
       width: 100% !important;
       height: 100% !important;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
   </style>
 </head>
 <body>
-  <script>(function(){if(/[?&]embed=1/.test(location.search)||window.self!==window.top)document.body.classList.add('embed-mode');})();</script>
+  <script>(function(){if(/[?&]embed=1/.test(location.search)||window.self!==window.top){document.documentElement.classList.add('embed-mode');document.body.classList.add('embed-mode');}})();</script>
   <div class="top-right-bar">
     <button type="button" class="integration-trigger" id="integration-doc-link">查看接入文档</button>
     <div class="lang-toggle" role="group" aria-label="语言">
@@ -637,6 +646,19 @@
     const VIEWER_SCALE = 4;
     const VIEWER_WIDTH_FACTOR = 3;
 
+    /** 设计稿活动区域（逻辑像素） */
+    const DESIGN_VIEWER_W = 384;
+    const DESIGN_VIEWER_H = 170;
+    /** 最小活动区域：保证角色 + 动作 + 道具可完整显示，高度为角色高+上下各4px 时可能较小 */
+    const MIN_ACTIVITY_W = 192;
+    const MIN_ACTIVITY_H = 30;
+
+    /** 当前活动区域（逻辑宽高），随容器或 setActivityArea 变化，且 >= 最小活动区域 */
+    var activityW = DESIGN_VIEWER_W;
+    var activityH = DESIGN_VIEWER_H;
+    /** 是否由外部通过 setActivityArea 指定尺寸（为 true 时不随容器 resize 覆盖） */
+    var useManualActivitySize = false;
+
     /** 在 2D 上下文的 (x,y) 处绘制一帧像素格，cell 为每格像素（默认 CELL） */
     function drawFrame(ctx, grid, color, x, y, cell) {
       const cs = cell != null ? cell : CELL;
@@ -653,12 +675,16 @@
     }
 
     var BASE_VIEWER_W = FRAME_W * VIEWER_SCALE;  // 原始宽度 128，用于计算角色尺寸
-    var VIEWER_W = BASE_VIEWER_W * VIEWER_WIDTH_FACTOR;  // 画布宽度 300%（384px）
-    var VIEWER_H = Math.round(BASE_VIEWER_W * 4 / 3);   // 高度保持 170，不随宽度变
-    var CHAR_SCALE = 0.34;  /* 在原有基础上再缩小 50%，角色整体等比例缩小一半 */
-    var CHAR_W = Math.round(BASE_VIEWER_W * CHAR_SCALE);  // 角色尺寸基于原始宽度，比例不变
-    var CHAR_H = CHAR_W;  // 角色比例不变，保持方形
-    var CHAR_AT_BOTTOM_THIRD = true;   // 角色在画面下方 1/3 位置（垂直中心在 2/3 高度处）
+    var CHAR_SCALE = 0.34;  /* 角色占画布比例（相对设计宽度） */
+    /** 根据当前活动区域计算角色与道具缩放（按宽度等比例，框高由角色高+上下4px 决定） */
+    function getActivityScale() {
+      return activityW / DESIGN_VIEWER_W;
+    }
+    function getCharSize() {
+      var scale = getActivityScale();
+      var w = Math.round(BASE_VIEWER_W * CHAR_SCALE * scale);
+      return { w: w, h: w };
+    }
 
     /** 像素风格：在 (ox, oy) 处绘制 grid（0/1 二维数组），每格 ps 像素，颜色 color */
     function drawPixelGrid(ctx, grid, color, ox, oy, ps) {
@@ -831,13 +857,12 @@
       drawPixelGrid(ctx, ERROR_X_THICK_GRID, '#ef4444', x, y, ps);
     }
 
-    /** 对话：头顶气泡先出，文字打字机效果。typedLen=已显示字数，气泡尺寸与角色比例一致 */
-    var DIALOGUE_BUBBLE_SCALE = 1.2 * (CHAR_SCALE / 0.85);  /* 随角色缩小而缩小，保持与角色同比例 */
+    /** 对话：头顶气泡尺寸与角色比例一致，在绘制时按当前活动区域缩放 */
     var DIALOGUE_TYPE_INTERVAL = 80;
     function drawDialogueProp(ctx, box, fullText, tint, typedLen) {
       if (fullText == null || fullText === '') return;
       ctx.save();
-      var s = DIALOGUE_BUBBLE_SCALE;
+      var s = (box.w / CHAR_FRAME_W) * 1.2;
       ctx.font = '500 ' + Math.round(12 * s) + 'px "Noto Sans SC", sans-serif';
       ctx.textBaseline = 'middle';
       var tw = ctx.measureText(fullText).width;
@@ -910,8 +935,14 @@
       var idleOffsetX = opts.idleOffsetX != null ? opts.idleOffsetX : 0;
       var idleOffsetY = opts.idleOffsetY != null ? opts.idleOffsetY : 0;
       var isWalk = actionId === 'walk';
-      var cw = VIEWER_W;
-      var ch = VIEWER_H;
+
+      var cw = activityW;
+      var ch = activityH;
+      var size = getCharSize();
+      var CHAR_W = size.w;
+      var CHAR_H = size.h;
+      var propScale = VIEWER_SCALE * getActivityScale();
+
       var dpr = Math.min(window.devicePixelRatio || 1, 3);
       var bufferW = Math.round(cw * dpr);
       var bufferH = Math.round(ch * dpr);
@@ -926,17 +957,9 @@
       ctx.fillStyle = '#1c1c1e';
       ctx.fillRect(0, 0, cw, ch);
 
-      var charLeft, charTop;
-      if (CHAR_AT_BOTTOM_THIRD) {
-        charTop = Math.round((ch * 2) / 3 - CHAR_H / 2) + bounceOffsetY + (isWalk ? 0 : idleOffsetY);
-      } else {
-        charTop = (ch - CHAR_H) / 2 + bounceOffsetY + (isWalk ? 0 : idleOffsetY);
-      }
-      if (isWalk) {
-        charLeft = (cw - CHAR_W) / 2 + walkOffsetX;
-      } else {
-        charLeft = (cw - CHAR_W) / 2 + idleOffsetX;
-      }
+      var charLeft = (cw - CHAR_W) / 2 + (isWalk ? walkOffsetX : idleOffsetX);
+      var PAD_BOTTOM = 4;
+      var charTop = ch - CHAR_H - PAD_BOTTOM + bounceOffsetY + (isWalk ? 0 : idleOffsetY);
       var bodyDim = opts.isTransitioning && (opts.transitionFlashStep % 2 === 1);
       if (bodyDim) ctx.save();
       if (bodyDim) ctx.globalAlpha = 0.25;
@@ -959,12 +982,11 @@
 
       if (bodyDim) ctx.restore();
 
-      var scale = VIEWER_SCALE;
       var box = { left: charLeft, top: charTop, w: CHAR_W, h: CHAR_H };
-      if (actionId === 'search') drawSearchProp(ctx, character, scale, box);
-      else if (actionId === 'process') drawProcessProp(ctx, character, scale, box);
-      else if (actionId === 'success') drawSuccessProp(ctx, character, scale, box);
-      else if (actionId === 'error') drawErrorProp(ctx, character, scale, box);
+      if (actionId === 'search') drawSearchProp(ctx, character, propScale, box);
+      else if (actionId === 'process') drawProcessProp(ctx, character, propScale, box);
+      else if (actionId === 'success') drawSuccessProp(ctx, character, propScale, box);
+      else if (actionId === 'error') drawErrorProp(ctx, character, propScale, box);
       else if (actionId === 'dialogue' && opts.dialogueText != null) drawDialogueProp(ctx, box, opts.dialogueText, character.color, opts.dialogueTypedLength);
     }
 
@@ -1111,7 +1133,7 @@
       var fps = 6;
       var interval = 1000 / fps;
       var last = performance.now();
-      var moveRange = Math.round(CHAR_W * 0.5);
+      var moveRange = Math.round(getCharSize().w * 0.5);
 
       function getOpts(now) {
         var opts = {
@@ -1248,10 +1270,56 @@
       }
     }
 
+    /** 框内角色上下各留 4px；头顶需预留成功爱心、对话气泡等道具高度 */
+    const PAD_VERTICAL = 4;
+    /** 成功动作：爱心在 box.top - heartH - 14，且角色有 bounceOffsetY 上跳约 10px */
+    function getHeadroomSuccess(scale) {
+      var ps = VIEWER_SCALE * scale;
+      return 8 * ps + 14 + 10;
+    }
+    /** 对话气泡：by = box.top - bh - tailH - 10，bh=24*s, tailH=6*s, s=(CHAR_W/32)*1.2 */
+    function getHeadroomDialogue(charW) {
+      var s = (charW / CHAR_FRAME_W) * 1.2;
+      return 30 * s + 10;
+    }
+    /** 搜索动作：思考云在 box.top - cloudH - 12 */
+    function getHeadroomSearch(scale) {
+      var ps = VIEWER_SCALE * scale;
+      return 6 * ps + 12;
+    }
+    /** 从容器尺寸更新活动区域：宽度取容器宽，高度 = 头顶道具预留 + 角色高 + 下 PAD_VERTICAL */
+    function updateActivityFromContainer() {
+      if (useManualActivitySize) return;
+      var wrap = document.querySelector('.viewer-canvas-wrap');
+      if (!wrap) return;
+      var w = wrap.clientWidth;
+      if (w <= 0) return;
+      activityW = Math.max(Math.round(w), MIN_ACTIVITY_W);
+      var scale = activityW / DESIGN_VIEWER_W;
+      var charH = Math.round(BASE_VIEWER_W * CHAR_SCALE * scale);
+      var charW = charH;
+      var headroomSuccess = getHeadroomSuccess(scale);
+      var headroomDialogue = getHeadroomDialogue(charW);
+      var headroomSearch = getHeadroomSearch(scale);
+      var headroom = Math.ceil(Math.max(headroomSuccess, headroomDialogue, headroomSearch));
+      activityH = Math.max(headroom + charH + PAD_VERTICAL, MIN_ACTIVITY_H);
+      wrap.style.height = activityH + 'px';
+    }
+
     function initGallery() {
       var params = new URLSearchParams(window.location.search);
       var isEmbed = params.get('embed') === '1';
       if (isEmbed) document.body.classList.add('embed-mode');
+
+      updateActivityFromContainer();
+      var wrap = document.querySelector('.viewer-canvas-wrap');
+      if (wrap && typeof ResizeObserver !== 'undefined') {
+        var ro = new ResizeObserver(function() {
+          updateActivityFromContainer();
+          startViewerAnimation();
+        });
+        ro.observe(wrap);
+      }
 
       var charParam = params.get('character');
       var actionParam = params.get('action');
@@ -1299,6 +1367,22 @@
         setAction: function(actionIndexOrId) { applyState(null, actionIndexOrId, null); },
         setEvolved: function(evolved) { applyState(null, null, evolved); },
         setLanguage: function(lang) { setLocale(lang === 'en' || lang === 'zh' ? lang : 'zh'); },
+        /** 设置角色活动区域（宽、高），不得小于最小活动区域，会自动钳位 */
+        setActivityArea: function(width, height) {
+          var w = typeof width === 'number' ? width : activityW;
+          var h = typeof height === 'number' ? height : activityH;
+          useManualActivitySize = true;
+          activityW = Math.max(Math.round(w), MIN_ACTIVITY_W);
+          activityH = Math.max(Math.round(h), MIN_ACTIVITY_H);
+          var wrap = document.querySelector('.viewer-canvas-wrap');
+          if (wrap) {
+            wrap.style.width = activityW + 'px';
+            wrap.style.height = activityH + 'px';
+          }
+          startViewerAnimation();
+        },
+        /** 返回最小活动区域（其他项目设置时不能小于此值） */
+        getMinActivityArea: function() { return { width: MIN_ACTIVITY_W, height: MIN_ACTIVITY_H }; },
         getState: function() {
           return {
             characterIndex: currentCharIndex,
@@ -1306,7 +1390,9 @@
             actionIndex: currentActionIndex,
             actionId: getCurrentActionId(),
             evolved: isEvolved,
-            language: locale
+            language: locale,
+            activityWidth: activityW,
+            activityHeight: activityH
           };
         },
         applyState: applyState,
@@ -1322,6 +1408,10 @@
           else if (d.method === 'setEvolved' && d.evolved !== undefined) window.ThinkerPet.setEvolved(d.evolved);
           else if (d.method === 'setLanguage' && d.language != null) window.ThinkerPet.setLanguage(d.language);
           else if (d.method === 'applyState') window.ThinkerPet.applyState(d.characterIndex, d.action, d.evolved);
+          else if (d.method === 'setActivityArea' && (d.width != null || d.height != null)) window.ThinkerPet.setActivityArea(d.width, d.height);
+          else if (d.method === 'getMinActivityArea' && typeof e.source !== 'undefined') {
+            e.source.postMessage({ type: 'thinker-pet-min-area', width: MIN_ACTIVITY_W, height: MIN_ACTIVITY_H }, '*');
+          }
           else if (d.method === 'getAvatar' && typeof e.source !== 'undefined') {
             var idx = d.characterIndex != null ? d.characterIndex : currentCharIndex;
             var ev = d.evolved !== undefined ? !!d.evolved : isEvolved;

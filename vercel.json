@@ -4,5 +4,8 @@
     { "source": "/", "destination": "/Thinker-Pet-app-demo/chat.html", "permanent": false },
     { "source": "/index.html", "destination": "/Thinker-Pet-app-demo/chat.html", "permanent": false }
   ],
+  "rewrites": [
+    { "source": "/Thinker-Pet-app-demo/chat", "destination": "/Thinker-Pet-app-demo/chat.html" }
+  ],
   "trailingSlash": false
 }
