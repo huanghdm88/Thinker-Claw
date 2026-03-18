@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/static/:path*", "destination": "/:path*" },
+    { "source": "/status", "destination": "/api/status" },
+    { "source": "/agents", "destination": "/api/agents" },
+    { "source": "/yesterday-memo", "destination": "/api/yesterday-memo" },
+    { "source": "/set_state", "destination": "/api/set_state" }
+  ]
+}

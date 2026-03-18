@@ -43,6 +43,10 @@
             justify-content: flex-start;
             margin-top: 20px;
         }
+        /* 强制左右顺序：左侧 Star 状态，右侧 昨日小记，最后 访客列表 */
+        #control-bar { order: 1 !important; }
+        #memo-panel { order: 2 !important; }
+        #guest-agent-panel { order: 3 !important; }
         #game-container {
             position: relative;
             border: 0;
@@ -1011,10 +1015,9 @@
                 height: auto;
                 min-height: 180px;
             }
-
-            #memo-panel { min-height: 220px; }
-            #control-bar { min-height: 210px; }
-            #guest-agent-panel { min-height: 220px; }
+            #control-bar { order: 1 !important; min-height: 210px; }
+            #memo-panel { order: 2 !important; min-height: 220px; }
+            #guest-agent-panel { order: 3 !important; min-height: 220px; }
 
             #memo-date {
                 left: 0;
@@ -1076,6 +1079,14 @@
             #lang-btn-cn {
                 font-size: 12px !important;
                 padding: 6px 8px !important;
+            }
+            /* 移动端：消除点击延迟，保证“移动视野”等按钮可点 */
+            #pan-toggle,
+            #coords-toggle {
+                touch-action: manipulation;
+                -webkit-tap-highlight-color: transparent;
+                min-height: 44px;
+                min-width: 44px;
             }
 
             body.drawer-open {
@@ -1145,9 +1156,9 @@
             <div id="status-text">加载中...</div>
         </div>
     
-    <!-- 底部面板容器 -->
+    <!-- 底部面板容器：用 order 强制 左=Star状态 右=昨日小记 -->
     <div id="bottom-panels">
-        <!-- Memo 面板 -->
+        <!-- 昨日小记（order:2 → 显示在右侧） -->
         <div id="memo-panel">
             <div id="memo-title">昨 日 小 记</div>
             <div id="memo-date"></div>
@@ -1157,8 +1168,7 @@
             </div>
             <div class="memo-decoration">─ ─ ─ ─ ─</div>
         </div>
-        
-        <!-- 状态控制栏 -->
+        <!-- Star 状态（order:1 → 显示在左侧） -->
         <div id="control-bar">
             <div id="control-bar-title">Star 状态</div>
             <div id="control-buttons">
@@ -4287,12 +4297,29 @@ function toggleBrokerPanel() {
             coordsToggle = document.getElementById('coords-toggle');
 
             // guest agent 将由 /agents 动态拉取并渲染到右侧访客列表
-            coordsToggle.addEventListener('click', () => {
-                showCoords = !showCoords;
-                coordsOverlay.style.display = showCoords ? 'block' : 'none';
-                coordsToggle.textContent = showCoords ? t('hideCoords') : t('showCoords');
-                coordsToggle.style.background = showCoords ? '#e94560' : '#333';
-            });
+            (function initCoordsToggle() {
+                let coordsTouchHandled = false;
+                const applyCoords = () => {
+                    coordsOverlay.style.display = showCoords ? 'block' : 'none';
+                    coordsToggle.textContent = showCoords ? t('hideCoords') : t('showCoords');
+                    coordsToggle.style.background = showCoords ? '#e94560' : '#333';
+                };
+                coordsToggle.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    coordsTouchHandled = true;
+                    showCoords = !showCoords;
+                    applyCoords();
+                }, { passive: false });
+                coordsToggle.addEventListener('click', (e) => {
+                    if (coordsTouchHandled) {
+                        coordsTouchHandled = false;
+                        e.preventDefault();
+                        return;
+                    }
+                    showCoords = !showCoords;
+                    applyCoords();
+                });
+            })();
 
             // 允许手机端“拖动/滑动”来移动视野（本质：移动 Phaser Camera）
             // iPhone 等触屏设备默认开启；桌面端默认关闭（可手动开）。
@@ -4361,8 +4388,29 @@ function toggleBrokerPanel() {
             camera.setBounds(0, 0, MAP_W, MAP_H);
             clampCameraScroll();
 
+            // 移动端：按状态把画面横向三等分，点击待命→中间、工作→左边、同步/报警→右边
+            const THIRD_LEFT_CENTER = MAP_W / 6;
+            const THIRD_MID_CENTER = MAP_W / 2;
+            const THIRD_RIGHT_CENTER = MAP_W * 5 / 6;
+            window.moveCameraToState = function(state) {
+                if (!isTouchDevice && !window.__panEnabled) return;
+                const vw = camera.width / Math.max(0.01, camera.zoom);
+                let targetScrollX;
+                if (state === 'idle') targetScrollX = THIRD_MID_CENTER - vw / 2;
+                else if (state === 'writing' || state === 'researching' || state === 'executing') targetScrollX = THIRD_LEFT_CENTER - vw / 2;
+                else if (state === 'syncing' || state === 'error') targetScrollX = THIRD_RIGHT_CENTER - vw / 2;
+                else targetScrollX = THIRD_MID_CENTER - vw / 2;
+                targetScrollX = clamp(targetScrollX, 0, maxScrollX());
+                if (game.tweens && game.tweens.add) {
+                    game.tweens.add({ targets: camera, scrollX: targetScrollX, duration: 400, ease: 'Power2' });
+                } else {
+                    camera.scrollX = targetScrollX;
+                }
+            };
+
             function setPanEnabled(on) {
                 panEnabled = on;
+                window.__panEnabled = on;
                 if (panToggle) {
                     panToggle.dataset.on = on ? '1' : '0';
                     panToggle.textContent = on ? t('lockView') : t('moveView');
@@ -4376,7 +4424,20 @@ function toggleBrokerPanel() {
             }
 
             if (panToggle) {
-                panToggle.addEventListener('click', () => setPanEnabled(!panEnabled));
+                let panTouchHandled = false;
+                panToggle.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    panTouchHandled = true;
+                    setPanEnabled(!panEnabled);
+                }, { passive: false });
+                panToggle.addEventListener('click', (e) => {
+                    if (panTouchHandled) {
+                        panTouchHandled = false;
+                        e.preventDefault();
+                        return;
+                    }
+                    setPanEnabled(!panEnabled);
+                });
             }
 
             // 手机端默认关闭拖动画面：由左上角“移动视野”开关显式开启

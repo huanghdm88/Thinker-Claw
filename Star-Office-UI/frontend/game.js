@@ -257,6 +257,7 @@ const AREA_POSITIONS = {
 
 // 状态控制栏函数（用于测试）
 function setState(state, detail) {
+  if (typeof window.moveCameraToState === 'function') window.moveCameraToState(state);
   fetch('/set_state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -715,6 +716,7 @@ function fetchStatus() {
 
         pendingDesiredState = null;
         currentState = nextState;
+        if (typeof window.moveCameraToState === 'function') window.moveCameraToState(nextState);
 
         if (nextState === 'idle') {
           if (game.textures.exists('sofa_busy')) {
