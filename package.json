@@ -1,0 +1,12 @@
+{
+  "name": "thinker-claw",
+  "private": true,
+  "description": "Thinker-pet 与 Thinker-Pet-app-demo 本地开发与部署",
+  "scripts": {
+    "dev": "serve -p 3000",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}

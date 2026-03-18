@@ -2,6 +2,19 @@
 
 本仓库包含 **Thinker-pet**（角色展示）和 **Thinker-Pet-app-demo**（H5 对话应用），部署后根路径会重定向到 Demo 应用。
 
+## 零、本地开发
+
+本地调试请使用静态服务，不要用 `file://` 打开。在仓库根目录执行：
+
+```bash
+npm install
+npm run dev
+```
+
+浏览器访问 http://localhost:3000/ 会跳转到 Demo。详见 [LOCAL_DEV.md](./LOCAL_DEV.md)。
+
+---
+
 ## 一、推送到 Git 仓库
 
 在项目根目录（`GLTF`）执行：

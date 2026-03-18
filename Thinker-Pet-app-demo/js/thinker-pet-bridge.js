@@ -1,9 +1,10 @@
 /**
  * 与 Thinker-pet 通信：iframe postMessage 或同页 window.ThinkerPet
+ * 角色模块从 Thinker-Claw 仓库加载：https://github.com/huanghdm88/Thinker-Claw
  */
 (function (global) {
   const IFRAME_ID = 'thinker-pet-iframe';
-  const THINKER_PET_BASE = '../Thinker-pet/index.html';
+  const THINKER_PET_BASE = (global.ThinkerClawConfig && global.ThinkerClawConfig.petBase) || '../Thinker-pet/index.html';
 
   const STATE_TO_ACTION = {
     idle: 'idle', listening: 'listen', thinking: 'process', searching: 'search',

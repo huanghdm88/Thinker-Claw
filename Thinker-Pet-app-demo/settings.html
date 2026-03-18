@@ -65,6 +65,7 @@
   </div>
   <iframe id="thinker-pet-avatar-loader" class="avatar-loader-iframe" title="加载角色头像" src="about:blank"></iframe>
   <script src="js/storage.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/characters.js"></script>
   <script>
     (function () {
@@ -91,27 +92,35 @@
         });
       })();
 
-      CHARACTERS.forEach(function (c) {
-        const el = document.createElement('div');
-        el.className = 'character-item' + (c.index === currentIndex ? ' selected' : '');
-        el.setAttribute('data-index', c.index);
-        el.innerHTML = '<div class="character-avatar">' +
-          '<img class="character-avatar-img" data-avatar-index="' + c.index + '" alt="" />' +
-          '</div><span class="character-name">' + c.name + '</span>';
-        el.addEventListener('click', function () {
-          currentIndex = parseInt(el.getAttribute('data-index'), 10);
-          setCharacterIndex(currentIndex);
-          characterGrid.querySelectorAll('.character-item').forEach(function (item) {
-            item.classList.toggle('selected', parseInt(item.getAttribute('data-index'), 10) === currentIndex);
+      function renderCharacterGrid() {
+        characterGrid.innerHTML = '';
+        CHARACTERS.forEach(function (c) {
+          const el = document.createElement('div');
+          el.className = 'character-item' + (c.index === currentIndex ? ' selected' : '');
+          el.setAttribute('data-index', c.index);
+          el.innerHTML = '<div class="character-avatar">' +
+            '<img class="character-avatar-img" data-avatar-index="' + c.index + '" alt="" />' +
+            '</div><span class="character-name">' + c.name + '</span>';
+          el.addEventListener('click', function () {
+            currentIndex = parseInt(el.getAttribute('data-index'), 10);
+            setCharacterIndex(currentIndex);
+            characterGrid.querySelectorAll('.character-item').forEach(function (item) {
+              item.classList.toggle('selected', parseInt(item.getAttribute('data-index'), 10) === currentIndex);
+            });
           });
+          characterGrid.appendChild(el);
         });
-        characterGrid.appendChild(el);
+      }
+
+      (window.CHARACTERS_READY || Promise.resolve(CHARACTERS)).then(function () {
+        renderCharacterGrid();
       });
 
       (function loadCharacterAvatars() {
         var iframe = document.getElementById('thinker-pet-avatar-loader');
         if (!iframe) return;
-        iframe.src = '../Thinker-pet/index.html?embed=1&lang=zh';
+        var petBase = (window.ThinkerClawConfig && window.ThinkerClawConfig.petBase) || '../Thinker-pet/index.html';
+        iframe.src = petBase.replace(/\?.*$/, '') + '?embed=1&lang=zh';
         iframe.addEventListener('load', function () {
           for (var i = 0; i <= 20; i++) {
             iframe.contentWindow.postMessage({

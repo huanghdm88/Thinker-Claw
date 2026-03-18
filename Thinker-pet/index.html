@@ -438,6 +438,17 @@
       [[0,0,0,1,1,1,0,0],[0,0,1,1,1,1,1,0],[0,0,0,0,1,1,0,0],[0,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,0,0,1,1,0,0,0],[0,0,1,0,0,1,0,0]],
     ];
     const DUCK_FRAMES = [DUCK_WALK[0],...DUCK_WALK,...DUCK_WALK.slice(0,3),...DUCK_WALK.slice(0,3),...DUCK_WALK.slice(0,3),...DUCK_WALK.slice(0,3),DUCK_WALK[0],DUCK_WALK[1],DUCK_WALK[0],DUCK_WALK[1],DUCK_WALK[0],DUCK_WALK[1],DUCK_WALK[0],DUCK_WALK[1]].map(f=>f.map(r=>[...r]));
+    /** 鸭子眼睛：两枚小点，叠在脸部中央 */
+    var DUCK_EYE_GRID = [
+      [0,0,0,0,0,0,0,0],
+      [0,0,1,0,1,0,0,0],
+      [0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0,0]
+    ];
     const CAT_WALK = [
       pad8x8([[0,1,0,0,0,1,0,0],[1,1,1,1,1,1,1,0],[1,1,0,1,0,1,1,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[1,1,0,0,0,1,0,0],[1,0,0,0,0,0,0,1],[0,0,0,0,0,0,0,0]]),
       pad8x8([[0,1,0,0,0,1,0,0],[1,1,1,1,1,1,1,0],[1,1,0,1,0,1,1,0],[1,1,1,1,1,1,1,0],[0,1,1,1,1,1,0,0],[0,1,1,0,0,1,0,0],[1,0,0,0,0,0,1,1],[0,0,0,0,0,0,0,0]]),
@@ -695,7 +706,6 @@
         }
       }
     }
-
     /** 搜索：放大镜（像素） */
     var MAGNIFIER_GRID = [
       [0,0,0,1,1,1,0,0],
@@ -976,6 +986,9 @@
         drawFrame(tctx, PIKACHU_CHEEK_GRID, '#E53939', 0, 0, CHAR_CELL);
         drawFrame(tctx, PIKACHU_EYE_GRID, '#1a1a1a', 0, 0, CHAR_CELL);
       }
+      if (character.base === 'duck') {
+        drawFrame(tctx, DUCK_EYE_GRID, '#1a1a1a', 0, 0, CHAR_CELL);
+      }
       ctx.drawImage(temp, 0, 0, CHAR_FRAME_W, CHAR_FRAME_H, charLeft, charTop, CHAR_W, CHAR_H);
 
       if (opts.isEvolved) drawEvolutionOverlay(ctx, character, charLeft, charTop, CHAR_W, CHAR_H);
@@ -1033,6 +1046,9 @@
         if (evolved) drawFrame(ctx, PIKACHU_BELLY_GRID, character.color, 0, 0, CHAR_CELL);
         drawFrame(ctx, PIKACHU_CHEEK_GRID, '#E53939', 0, 0, CHAR_CELL);
         drawFrame(ctx, PIKACHU_EYE_GRID, '#1a1a1a', 0, 0, CHAR_CELL);
+      }
+      if (character.base === 'duck') {
+        drawFrame(ctx, DUCK_EYE_GRID, '#1a1a1a', 0, 0, CHAR_CELL);
       }
       return canvas.toDataURL('image/png');
     }
@@ -1320,7 +1336,6 @@
         });
         ro.observe(wrap);
       }
-
       var charParam = params.get('character');
       var actionParam = params.get('action');
       var evolvedParam = params.get('evolved');
@@ -1344,10 +1359,10 @@
         if (docLink) docLink.textContent = getIntegrationLinkText();
       }
       if (!isEmbed) {
-        updateCharUI();
-        renderActionButtons();
-        updateEvolveButton();
-        updateLangToggleButtons();
+      updateCharUI();
+      renderActionButtons();
+      updateEvolveButton();
+      updateLangToggleButtons();
       }
       startViewerAnimation();
 

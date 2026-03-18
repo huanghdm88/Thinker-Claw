@@ -1,7 +1,9 @@
 /**
  * 角色列表，与 Thinker-pet 索引 0～20 一致
+ * 若配置了 ThinkerClawConfig.charactersJsonUrl，则从 Thinker-Claw 仓库拉取并覆盖
+ * 仓库: https://github.com/huanghdm88/Thinker-Claw
  */
-const CHARACTERS = [
+var CHARACTERS = [
   { index: 0, id: 'c01', name: '科技人形', base: 'robot' },
   { index: 1, id: 'c02', name: '暖阳鸭', base: 'duck' },
   { index: 2, id: 'c03', name: '薄荷兔', base: 'rabbit' },
@@ -25,8 +27,23 @@ const CHARACTERS = [
   { index: 20, id: 'c21', name: '皮卡丘', base: 'pikachu' },
 ];
 
+/** 角色列表就绪 Promise：若配置了远程 JSON 则先拉取再 resolve，否则立即 resolve */
+var CHARACTERS_READY = (function () {
+  var config = typeof window !== 'undefined' && window.ThinkerClawConfig;
+  var url = config && config.charactersJsonUrl;
+  if (!url) return Promise.resolve(CHARACTERS);
+  return fetch(url)
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    .then(function (list) {
+      if (Array.isArray(list) && list.length > 0) CHARACTERS = list;
+      return CHARACTERS;
+    })
+    .catch(function () { return CHARACTERS; });
+})();
+if (typeof window !== 'undefined') window.CHARACTERS_READY = CHARACTERS_READY;
+
 function getCharacterByIndex(index) {
-  const i = Number(index);
+  var i = Number(index);
   if (isNaN(i) || i < 0 || i > 20) return CHARACTERS[0];
   return CHARACTERS[i] || CHARACTERS[0];
 }

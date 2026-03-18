@@ -30,15 +30,19 @@ Thinker-Pet-app-demo/
 ├── css/styles.css   # H5 暗色样式
 ├── js/
 │   ├── storage.js   # 本地存储
-│   ├── characters.js # 角色列表（与 Thinker-pet 0～20 一致）
+│   ├── config.js    # Thinker-Claw 仓库配置（角色模块 base URL、角色列表 JSON 地址）
+│   ├── characters.js # 角色列表（与 Thinker-pet 0～20 一致，可改为从仓库拉取）
 │   ├── thinker-pet-bridge.js # 与 Thinker-pet 通信（postMessage/API）
 │   ├── agent.js     # 意图解析、Cron/长记忆/技能、进化退化
 │   └── chat.js      # 对话页逻辑
 └── README.md
 ```
 
-## 与 Thinker-pet 对接
+## 角色模块与 Thinker-Claw 仓库
 
-- iframe 加载 `../Thinker-pet/index.html?embed=1&character=N&action=...`，嵌入模式仅显示角色画布。
-- 对话页顶部内嵌 Thinker-pet，默认动作由设置页「角色默认状态」决定，随 Agent 状态通过 postMessage 实时切换动作。
-- 动作与场景对应见 [Thinker-pet/INTEGRATION.md](../Thinker-pet/INTEGRATION.md)。
+角色展示与角色列表**统一从 [Thinker-Claw](https://github.com/huanghdm88/Thinker-Claw) 仓库加载**，由 `js/config.js` 配置：
+
+- **petBase**：Thinker-pet 页面地址，用于 iframe 嵌入（选择页预览、对话页顶部角色、设置页头像）。本地开发时自动用相对路径 `../Thinker-pet/index.html`；非本地时默认使用 GitHub Pages 地址，也可改为你的 Vercel 等部署地址。
+- **charactersJsonUrl**：角色列表 JSON 的远程地址。若配置，应用会从该 URL 拉取角色列表并覆盖本地默认列表；拉取失败时使用内置列表。
+
+与 Thinker-pet 的对接行为不变：iframe 加载 `petBase?embed=1&character=N&action=...`，对话页顶部内嵌角色，默认动作由设置页「角色默认状态」决定，随 Agent 状态通过 postMessage 切换动作。动作与场景对应见 [Thinker-pet/INTEGRATION.md](../Thinker-pet/INTEGRATION.md)。

@@ -27,6 +27,7 @@
     </main>
   </div>
   <script src="js/storage.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/characters.js"></script>
   <script src="js/thinker-pet-bridge.js"></script>
   <script>
@@ -34,9 +35,11 @@
       const grid = document.getElementById('character-grid');
       const btnConfirm = document.getElementById('btn-confirm');
       let selectedIndex = getCharacterIndex();
-      const baseUrl = '../Thinker-pet/index.html';
+      const baseUrl = (window.ThinkerClawConfig && window.ThinkerClawConfig.petBase) || '../Thinker-pet/index.html';
 
-      CHARACTERS.forEach(function (c) {
+      function renderGrid() {
+        grid.innerHTML = '';
+        CHARACTERS.forEach(function (c) {
         const el = document.createElement('div');
         el.className = 'character-item' + (c.index === selectedIndex ? ' selected' : '');
         el.setAttribute('data-index', c.index);
@@ -54,6 +57,11 @@
           btnConfirm.disabled = false;
         });
         grid.appendChild(el);
+        });
+      }
+
+      (window.CHARACTERS_READY || Promise.resolve(CHARACTERS)).then(function () {
+        renderGrid();
       });
 
       btnConfirm.addEventListener('click', function () {
