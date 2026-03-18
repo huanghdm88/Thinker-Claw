@@ -4388,39 +4388,25 @@ function toggleBrokerPanel() {
             camera.setBounds(0, 0, MAP_W, MAP_H);
             clampCameraScroll();
 
-            // 按状态移动视野：屏宽<428px 时左/中/右对齐 500ms；否则沿用原三等分逻辑
-            const THIRD_LEFT_CENTER = MAP_W / 6;
-            const THIRD_MID_CENTER = MAP_W / 2;
-            const THIRD_RIGHT_CENTER = MAP_W * 5 / 6;
+            // 按状态移动视野：以角色/焦点坐标为画面居中，500ms 平移（待命→沙发区，工作→办公区，同步→同步动画，报警→错误区）
             const NARROW_BREAKPOINT = 428;
-            const NARROW_DURATION = 500;
-            const WIDE_DURATION = 400;
+            const PAN_DURATION = 500;
+            const SYNC_ANIM_X = 1157;
+            function getFocusXForState(state) {
+                if (!areas) return MAP_W / 2;
+                if (state === 'idle') return areas.breakroom ? areas.breakroom.x : 640;
+                if (state === 'writing' || state === 'researching' || state === 'executing') return areas.writing ? areas.writing.x : 320;
+                if (state === 'syncing') return SYNC_ANIM_X;
+                if (state === 'error') return areas.error ? areas.error.x : 1066;
+                return areas.breakroom ? areas.breakroom.x : 640;
+            }
             window.moveCameraToState = function(state) {
                 const vw = camera.width / Math.max(0.01, camera.zoom);
-                const isNarrow = window.innerWidth < NARROW_BREAKPOINT;
-                let targetScrollX;
-                let duration = WIDE_DURATION;
-                if (isNarrow) {
-                    duration = NARROW_DURATION;
-                    if (state === 'writing' || state === 'researching' || state === 'executing') {
-                        targetScrollX = 0;
-                    } else if (state === 'idle') {
-                        targetScrollX = (MAP_W - vw) / 2;
-                    } else if (state === 'syncing' || state === 'error') {
-                        targetScrollX = maxScrollX();
-                    } else {
-                        targetScrollX = (MAP_W - vw) / 2;
-                    }
-                } else {
-                    if (!isTouchDevice && !window.__panEnabled) return;
-                    if (state === 'idle') targetScrollX = THIRD_MID_CENTER - vw / 2;
-                    else if (state === 'writing' || state === 'researching' || state === 'executing') targetScrollX = THIRD_LEFT_CENTER - vw / 2;
-                    else if (state === 'syncing' || state === 'error') targetScrollX = THIRD_RIGHT_CENTER - vw / 2;
-                    else targetScrollX = THIRD_MID_CENTER - vw / 2;
-                }
+                const focusX = getFocusXForState(state);
+                let targetScrollX = focusX - vw / 2;
                 targetScrollX = clamp(targetScrollX, 0, maxScrollX());
                 if (game.tweens && game.tweens.add) {
-                    game.tweens.add({ targets: camera, scrollX: targetScrollX, duration: duration, ease: 'Power2' });
+                    game.tweens.add({ targets: camera, scrollX: targetScrollX, duration: PAN_DURATION, ease: 'Power2' });
                 } else {
                     camera.scrollX = targetScrollX;
                 }
@@ -4434,6 +4420,7 @@ function toggleBrokerPanel() {
                     panToggle.textContent = on ? t('lockView') : t('moveView');
                     panToggle.style.background = on ? '#e94560' : '#333';
                 }
+                if (canvasEl) canvasEl.style.touchAction = on ? 'pan-y' : 'auto';
                 game.input.setDefaultCursor(on ? 'grab' : 'default');
                 if (isTouchDevice && statusText) {
                     const info = on ? '视野拖动已开启（可左右拖动画布）' : '视野拖动已关闭（点击左上角“移动视野”可开启）';
@@ -4463,21 +4450,17 @@ function toggleBrokerPanel() {
                 setPanEnabled(false);
             }
 
-            // iOS/Safari 手势策略：
-            // - 保留垂直滚动（让页面能下滑看三个面板）
-            // - 水平方向拖动时才阻止默认行为，并转为 camera 横向平移
-            // 说明：iOS 对 pointer + touch-action 支持存在机型差异，所以这里加一套原生 touch 兜底。
+            // 触屏横向拖动视野：开启时 touch-action: pan-y 把横滑交给本逻辑，竖滑留给页面
             const canvasEl = game.canvas;
             let touchPan = null; // {x,y,sx,sy,lock:'x'|'y'|null}
             if (canvasEl) {
-                // 手机端允许页面自然滚动，避免“不能滑动”
-                canvasEl.style.touchAction = 'auto';
+                canvasEl.style.touchAction = panEnabled ? 'pan-y' : 'auto';
 
                 canvasEl.addEventListener('touchstart', (e) => {
                     if (!panEnabled || e.touches.length !== 1) return;
                     const t = e.touches[0];
                     touchPan = { x: t.clientX, y: t.clientY, sx: camera.scrollX, sy: camera.scrollY, lock: null };
-                }, { passive: true });
+                }, { passive: true, capture: true });
 
                 canvasEl.addEventListener('touchmove', (e) => {
                     if (!panEnabled || !touchPan || e.touches.length !== 1) return;
@@ -4491,17 +4474,15 @@ function toggleBrokerPanel() {
                     }
 
                     if (touchPan.lock === 'x') {
-                        // 横向拖动交给办公室视野；阻止浏览器默认滚动
                         e.preventDefault();
                         hasManuallyPanned = true;
                         camera.scrollX = clamp(touchPan.sx - dx, 0, maxScrollX());
                     }
-                    // lock==='y' 时不阻止默认，交给页面纵向滚动
-                }, { passive: false });
+                }, { passive: false, capture: true });
 
                 const clearTouchPan = () => { touchPan = null; };
-                canvasEl.addEventListener('touchend', clearTouchPan, { passive: true });
-                canvasEl.addEventListener('touchcancel', clearTouchPan, { passive: true });
+                canvasEl.addEventListener('touchend', clearTouchPan, { passive: true, capture: true });
+                canvasEl.addEventListener('touchcancel', clearTouchPan, { passive: true, capture: true });
             }
 
             game.input.on('pointerdown', (pointer) => {
