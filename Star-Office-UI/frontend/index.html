@@ -1156,19 +1156,9 @@
             <div id="status-text">加载中...</div>
         </div>
     
-    <!-- 底部面板容器：用 order 强制 左=Star状态 右=昨日小记 -->
+    <!-- 底部面板容器：左=Star状态，右=昨日小记（DOM 顺序即显示顺序） -->
     <div id="bottom-panels">
-        <!-- 昨日小记（order:2 → 显示在右侧） -->
-        <div id="memo-panel">
-            <div id="memo-title">昨 日 小 记</div>
-            <div id="memo-date"></div>
-            <div class="memo-decoration">─ ─ ─ ─ ─</div>
-            <div id="memo-content">
-                <div id="memo-placeholder">加载中...</div>
-            </div>
-            <div class="memo-decoration">─ ─ ─ ─ ─</div>
-        </div>
-        <!-- Star 状态（order:1 → 显示在左侧） -->
+        <!-- Star 状态（左侧） -->
         <div id="control-bar">
             <div id="control-bar-title">Star 状态</div>
             <div id="control-buttons">
@@ -1179,8 +1169,18 @@
                 <button id="btn-open-drawer" onclick="toggleAssetDrawer()">装修房间</button>
             </div>
         </div>
+        <!-- 昨日小记（右侧） -->
+        <div id="memo-panel">
+            <div id="memo-title">昨 日 小 记</div>
+            <div id="memo-date"></div>
+            <div class="memo-decoration">─ ─ ─ ─ ─</div>
+            <div id="memo-content">
+                <div id="memo-placeholder">加载中...</div>
+            </div>
+            <div class="memo-decoration">─ ─ ─ ─ ─</div>
+        </div>
 
-        <!-- Guest Agent 名单面板（右下角） -->
+        <!-- Guest Agent 名单面板 -->
         <div id="guest-agent-panel">
             <div id="guest-agent-panel-title">访 客 列 表</div>
             <div id="guest-agent-list">
@@ -4388,21 +4388,39 @@ function toggleBrokerPanel() {
             camera.setBounds(0, 0, MAP_W, MAP_H);
             clampCameraScroll();
 
-            // 移动端：按状态把画面横向三等分，点击待命→中间、工作→左边、同步/报警→右边
+            // 按状态移动视野：屏宽<428px 时左/中/右对齐 500ms；否则沿用原三等分逻辑
             const THIRD_LEFT_CENTER = MAP_W / 6;
             const THIRD_MID_CENTER = MAP_W / 2;
             const THIRD_RIGHT_CENTER = MAP_W * 5 / 6;
+            const NARROW_BREAKPOINT = 428;
+            const NARROW_DURATION = 500;
+            const WIDE_DURATION = 400;
             window.moveCameraToState = function(state) {
-                if (!isTouchDevice && !window.__panEnabled) return;
                 const vw = camera.width / Math.max(0.01, camera.zoom);
+                const isNarrow = window.innerWidth < NARROW_BREAKPOINT;
                 let targetScrollX;
-                if (state === 'idle') targetScrollX = THIRD_MID_CENTER - vw / 2;
-                else if (state === 'writing' || state === 'researching' || state === 'executing') targetScrollX = THIRD_LEFT_CENTER - vw / 2;
-                else if (state === 'syncing' || state === 'error') targetScrollX = THIRD_RIGHT_CENTER - vw / 2;
-                else targetScrollX = THIRD_MID_CENTER - vw / 2;
+                let duration = WIDE_DURATION;
+                if (isNarrow) {
+                    duration = NARROW_DURATION;
+                    if (state === 'writing' || state === 'researching' || state === 'executing') {
+                        targetScrollX = 0;
+                    } else if (state === 'idle') {
+                        targetScrollX = (MAP_W - vw) / 2;
+                    } else if (state === 'syncing' || state === 'error') {
+                        targetScrollX = maxScrollX();
+                    } else {
+                        targetScrollX = (MAP_W - vw) / 2;
+                    }
+                } else {
+                    if (!isTouchDevice && !window.__panEnabled) return;
+                    if (state === 'idle') targetScrollX = THIRD_MID_CENTER - vw / 2;
+                    else if (state === 'writing' || state === 'researching' || state === 'executing') targetScrollX = THIRD_LEFT_CENTER - vw / 2;
+                    else if (state === 'syncing' || state === 'error') targetScrollX = THIRD_RIGHT_CENTER - vw / 2;
+                    else targetScrollX = THIRD_MID_CENTER - vw / 2;
+                }
                 targetScrollX = clamp(targetScrollX, 0, maxScrollX());
                 if (game.tweens && game.tweens.add) {
-                    game.tweens.add({ targets: camera, scrollX: targetScrollX, duration: 400, ease: 'Power2' });
+                    game.tweens.add({ targets: camera, scrollX: targetScrollX, duration: duration, ease: 'Power2' });
                 } else {
                     camera.scrollX = targetScrollX;
                 }
